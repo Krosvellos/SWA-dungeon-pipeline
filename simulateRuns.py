@@ -11,7 +11,7 @@ START_DATE = "2026-01-01"
 END_DATE = "2026-04-15"
 
 # Only actually POST data from this date onward (existing data already in MongoDB)
-GENERATE_FROM = "2026-03-16"
+GENERATE_FROM = "2026-01-01"
 
 # Per selected day:
 # weekdays should be closer to the lower range,
