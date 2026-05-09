@@ -27,8 +27,9 @@ dungeonBackend/src/main/resources/application-secret.properties
 .DS_Store
 *.class
 
-# Local developer notes
+# Local developer notes and scripts
 COMMANDS.md
+scripts/
 
 # Logs
 *.log
