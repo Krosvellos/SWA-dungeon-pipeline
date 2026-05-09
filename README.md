@@ -44,11 +44,25 @@ Příklad: dataset `dungeon_runs` → pipeline čte z MongoDB kolekce `dungeon_r
 
 Každý příchozí dungeon run se uloží jako samostatný dokument do MongoDB kolekce odpovídající datasetu (`dungeon_runs` ve výchozím nastavení). Tato data jsou nezpracovaná a čekají na pipeline.
 
-### Pipeline – zpracování do PostgreSQL
+### Pipeline – zpracování do PostgreSQL (ETL)
 
-Pipeline vezme všechny záznamy z příslušné MongoDB kolekce, agreguje je do statistik (per dungeon, per třída, per den) a výsledky uloží do PostgreSQL. Zdrojový záznam se přesune do kolekce `processed_runs` a z původní kolekce se smaže.
+Každý běh pipeline prochází třemi fázemi sledovanými jako samostatné `JobRunStep` záznamy v PostgreSQL:
 
-Agregace probíhá automaticky každý den ve **2:00** (cron `0 0 2 * * *`). Pipeline má retry logiku – při selhání se po 30 s pokusí znovu. Pokud selže dvakrát za sebou, odešle e-mail.
+**EXTRACT** — načte všechny dokumenty z příslušné MongoDB kolekce do paměti (`mongoTemplate.findAll`). Zaznamená počet načtených dokumentů.
+
+**TRANSFORM** — projde každý načtený run a aktualizuje agregovaný řádek v tabulce `dungeon_stats` (klíčovaný kombinací `dungeonName + playerClass + date`). Pokud řádek pro danou kombinaci ještě neexistuje, vytvoří ho. Inkrementálně připočítává `totalRuns`, `totalTime`, `totalDeaths`, `totalItemLevel` a `successCount`.
+
+**LOAD** — pro každý zpracovaný run vytvoří kopii v MongoDB kolekci `processed_runs` (auditní stopa) a původní dokument z produkční kolekce smaže. Tím je zajištěno, že příští spuštění pipeline nezpracuje stejná data znovu.
+
+Průběh každé fáze (status, čas zahájení/ukončení, počet zpracovaných záznamů, případná chybová zpráva) je viditelný v záložce **Běhy → detail jobu**.
+
+Agregace probíhá automaticky každý den ve **2:00** (cron `0 0 2 * * *`). Pipeline má retry logiku – při selhání se po 30 s pokusí znovu. Chování při selhání řídí konfigurovatelné **alert rule** přiřazené každé pipeline:
+
+| Režim | Chování |
+|---|---|
+| `CONSECUTIVE_FAIL_EMAIL` | E-mail po dvou po sobě jdoucích selháních |
+| `NO_ALERTS` | Žádné alerty ani e-maily |
+| `EXCLUDE_TIMEOUT_FAILURES` | Alerty pouze při reálných chybách, timeouty ignorovány |
 
 **Dvě databáze:**
 
@@ -103,7 +117,7 @@ Skript pošle tisíce dungeon runů do backendu. Poté je lze zpracovat spuště
 
 **Charakteristika datasetu:**
 
-Simulované období: `2026-01-01` → `2026-03-15`, každý den v rozmezí (74 dní celkem).
+Simulované období: `2026-01-01` → `2026-04-15` (105 dní celkem).
 
 - **3 dungeony** s různými rozsahy obtížnosti: `gnollDungeon`, `dragonDungeon`, `cathedralDungeon`
 - **9 tříd postav**, každá s vlastním profilem (rychlost, damage, tendence k smrtím)
@@ -118,6 +132,7 @@ Simulované období: `2026-01-01` → `2026-03-15`, každý den v rozmezí (74 d
 | Patch 1.2 | 2026-02-12 | Warrior oslaben, Monk / Hunter / Warlock / Paladin posíleni |
 | Patch 1.2.1 | 2026-02-19 | Hotfix: Monk nerfnut, Druid a Shaman konečně posíleni, Rogue částečně obnoven |
 | Patch 1.3 | 2026-03-05 | Priest a Warrior redemption arc, Rogue dokončen, meta se stabilizuje |
+| Season 2 | 2026-03-20 | Nová sezona: výrazné navýšení obtížnosti across all dungeons, win rate všech tříd klesá o 22–35 %, death count roste o 2–4 na run |
 
 Prvních 3 dní po každém patchi mají všechny třídy zvýšený počet smrtí — hráči si zvykají na změněné mechaniky.
 

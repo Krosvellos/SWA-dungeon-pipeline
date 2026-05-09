@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Pipeline, Dataset, JobRun, AlertEvent, AlertRule, AlertMode } from "@/types/dashboard";
 import { createPipeline, updatePipeline, deletePipeline, runPipeline, setPipelineActive, upsertAlertRule } from "@/services/dungeonService";
 import PipelineDetailModal from "./PipelineDetailModal";
@@ -76,10 +76,15 @@ const PipelineList: React.FC<Props> = ({ pipelines, datasets, jobRuns, alerts, a
       onRefresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to run pipeline");
-    } finally {
       setRunning(null);
     }
   };
+
+  const isAnyRunning = jobRuns.some(r => r.status === "RUNNING" || r.status === "PENDING");
+
+  useEffect(() => {
+    if (isAnyRunning && running !== null) setRunning(null);
+  }, [isAnyRunning, running]);
 
   const handleToggleActive = async (p: Pipeline) => {
     try {
@@ -139,7 +144,6 @@ const PipelineList: React.FC<Props> = ({ pipelines, datasets, jobRuns, alerts, a
   };
 
   const datasetName = (id: number) => datasets.find(d => d.id === id)?.name ?? `#${id}`;
-  const isAnyRunning = jobRuns.some(r => r.status === "RUNNING" || r.status === "PENDING");
   const alertModeForPipeline = (pipelineId: number): AlertMode =>
     alertRules.find(r => r.pipelineId === pipelineId)?.alertMode ?? "CONSECUTIVE_FAIL_EMAIL";
 
