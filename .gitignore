@@ -1,0 +1,31 @@
+# Build outputs
+dungeonBackend/target/
+dungeon-frontend/.next/
+dungeon-frontend/out/
+
+# Dependencies
+dungeon-frontend/node_modules/
+
+# PostgreSQL data cluster — never commit database binary files
+postgresdb/
+
+# Stray data/export files at project root
+*.json
+
+# Local secrets — never commit these
+*.env
+*.env.local
+.env*
+dungeonBackend/src/main/resources/application-local.properties
+dungeonBackend/src/main/resources/application-secret.properties
+
+# IDE & OS
+.idea/
+*.iws
+*.iml
+*.ipr
+.DS_Store
+*.class
+
+# Logs
+*.log
