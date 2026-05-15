@@ -68,6 +68,95 @@ Chování při selhání řídí konfigurovatelné **alert rule** přiřazené k
 ![MongoDB – raw runy](screenshots/mongo_raw_runs.png)
 ![PostgreSQL – agregovaná data](screenshots/Postgres_db_aggregated.png)
 
+### Schéma PostgreSQL
+
+Tabulky jsou spravovány Hibernatem (`ddl-auto=update`) a generovány automaticky při prvním startu backendu.
+
+**`datasets`**
+
+| Sloupec | Typ | Popis |
+|---|---|---|
+| `id` | BIGINT (PK) | Automaticky generované ID |
+| `name` | VARCHAR (NOT NULL) | Název datasetu — odpovídá názvu MongoDB kolekce |
+| `description` | VARCHAR | Volitelný popis |
+| `owner` | VARCHAR (NOT NULL) | Vlastník datasetu |
+| `schema_version` | VARCHAR | Volitelná verze schématu |
+| `created_at` | TIMESTAMP | Čas vytvoření záznamu |
+
+**`pipelines`**
+
+| Sloupec | Typ | Popis |
+|---|---|---|
+| `id` | BIGINT (PK) | Automaticky generované ID |
+| `name` | VARCHAR (NOT NULL) | Název pipeline |
+| `description` | VARCHAR | Volitelný popis |
+| `dataset_id` | BIGINT (NOT NULL) | Odkaz na `datasets.id` |
+| `schedule` | VARCHAR | Cron výraz (výchozí `0 0 2 * * *`) |
+| `active` | BOOLEAN (NOT NULL) | Zda pipeline aktuálně běží na cronu |
+| `timeout_minutes` | INTEGER (NOT NULL) | Maximální povolená délka běhu (výchozí 10) |
+| `created_at` | TIMESTAMP | Čas vytvoření záznamu |
+
+**`job_runs`**
+
+| Sloupec | Typ | Popis |
+|---|---|---|
+| `id` | BIGINT (PK) | Automaticky generované ID |
+| `pipeline_id` | BIGINT | Odkaz na `pipelines.id` |
+| `status` | VARCHAR | `PENDING` / `RUNNING` / `SUCCESS` / `FAILED` |
+| `started_at` | TIMESTAMP | Čas spuštění běhu |
+| `finished_at` | TIMESTAMP | Čas ukončení (NULL pokud stále běží) |
+| `duration_seconds` | BIGINT | Délka běhu v sekundách |
+| `records_processed` | INTEGER | Počet zpracovaných záznamů |
+| `error_message` | VARCHAR(1000) | Chybová zpráva při selhání |
+
+**`job_run_steps`**
+
+| Sloupec | Typ | Popis |
+|---|---|---|
+| `id` | BIGINT (PK) | Automaticky generované ID |
+| `job_run_id` | BIGINT | Odkaz na `job_runs.id` |
+| `step_name` | VARCHAR (NOT NULL) | Název fáze: `EXTRACT`, `TRANSFORM`, nebo `LOAD` |
+| `status` | VARCHAR (NOT NULL) | `PENDING` / `RUNNING` / `SUCCESS` / `FAILED` |
+| `started_at` | TIMESTAMP | Čas zahájení fáze |
+| `finished_at` | TIMESTAMP | Čas ukončení fáze |
+| `records_processed` | INTEGER | Počet záznamů zpracovaných v dané fázi |
+| `error_message` | VARCHAR(1000) | Chybová zpráva při selhání fáze |
+
+**`alert_rules`**
+
+| Sloupec | Typ | Popis |
+|---|---|---|
+| `id` | BIGINT (PK) | Automaticky generované ID |
+| `pipeline_id` | BIGINT (NOT NULL, UNIQUE) | Odkaz na `pipelines.id` — jedno pravidlo na pipeline |
+| `alert_mode` | VARCHAR (NOT NULL) | `CONSECUTIVE_FAIL_EMAIL` / `NO_ALERTS` / `EXCLUDE_TIMEOUT_FAILURES` |
+
+**`alert_events`**
+
+| Sloupec | Typ | Popis |
+|---|---|---|
+| `id` | BIGINT (PK) | Automaticky generované ID |
+| `pipeline_id` | BIGINT | Odkaz na `pipelines.id` |
+| `job_run_id` | BIGINT | Odkaz na `job_runs.id` |
+| `message` | VARCHAR (NOT NULL) | Text alertu |
+| `severity` | VARCHAR | `INFO` / `WARNING` / `CRITICAL` |
+| `status` | VARCHAR | `OPEN` / `RESOLVED` |
+| `created_at` | TIMESTAMP | Čas vzniku alertu |
+
+**`dungeon_stats`**
+
+| Sloupec | Typ | Popis |
+|---|---|---|
+| `id` | BIGINT (PK) | Automaticky generované ID |
+| `dungeon_name` | VARCHAR | Název dungeonu (např. `gnollDungeon`) |
+| `player_class` | VARCHAR | Třída postavy (např. `Paladin`) |
+| `date` | VARCHAR | Datum ve formátu `YYYY-MM-DD` — klíč agregace |
+| `total_runs` | BIGINT | Celkový počet runů pro tuto kombinaci |
+| `total_time` | DOUBLE PRECISION | Součet časů všech runů (minuty) |
+| `total_deaths` | BIGINT | Součet smrtí napříč všemi runy |
+| `total_item_level` | BIGINT | Součet item levelů (pro výpočet průměru) |
+| `success_count` | BIGINT | Počet runů, kde byl zabit finální boss |
+| `last_updated` | TIMESTAMP | Čas poslední aktualizace řádku pipeline |
+
 ---
 
 ## Frontend
